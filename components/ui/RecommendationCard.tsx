@@ -12,12 +12,13 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommendation,
     : '/placeholder-poster.jpg';
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
       <div className="relative">
         <img
           src={posterUrl}
           alt={movie.title}
           className="w-full h-48 object-cover"
+          loading="lazy"
         />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-2">
           <h3 className="text-white text-lg font-semibold line-clamp-2">{movie.title}</h3>

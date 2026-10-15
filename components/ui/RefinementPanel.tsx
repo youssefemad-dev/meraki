@@ -44,7 +44,7 @@ export default function RefinementPanel({
                 type="button"
                 onClick={() => onRefinement({ type: 'SET_DESIRED_EXPERIENCE', experience: 'inspiration' as const })}
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500 transition-colors duration-200"
               >
                 What kind of experience?
               </button>
@@ -69,7 +69,7 @@ export default function RefinementPanel({
                 type="button"
                 onClick={() => onRefinement({ type: 'SET_MOOD', mood: 'energetic' as const })}
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500 transition-colors duration-200"
               >
                 How are you feeling?
               </button>
@@ -94,7 +94,7 @@ export default function RefinementPanel({
                 type="button"
                 onClick={() => onRefinement({ type: 'SET_INTENSITY', intensity: 'high' as const })}
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500 transition-colors duration-200"
               >
                 How intense?
               </button>
@@ -119,7 +119,7 @@ export default function RefinementPanel({
                 type="button"
                 onClick={() => onRefinement({ type: 'ADD_THEME', theme: 'love' })}
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500 transition-colors duration-200"
               >
                 What themes interest you?
               </button>
@@ -144,7 +144,7 @@ export default function RefinementPanel({
                 type="button"
                 onClick={() => onRefinement({ type: 'ADD_CONTENT_TO_AVOID', content: 'violence' })}
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="mt-1 text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500 transition-colors duration-200"
               >
                 What to avoid?
               </button>
@@ -156,7 +156,7 @@ export default function RefinementPanel({
           <button
             type="button"
             onClick={onReset}
-            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-gray-500 transition-colors duration-200"
           >
             Start Over
           </button>

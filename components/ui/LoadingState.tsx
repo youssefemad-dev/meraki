@@ -33,12 +33,15 @@ const LoadingState: React.FC<LoadingStateProps> = ({ state, errorMessage }) => {
 
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="animate-pulse inline-flex items-center w-12 h-12 rounded-full bg-gray-200 mb-4"></div>
+      <div className="flex items-center justify-center w-14 h-14 mb-4">
+        {/* Custom spinner */}
+        <div className="h-5 w-5 border-t-2 border-b-2 border-l-2 border-indigo-600 rounded-full animate-spin"></div>
+      </div>
       <p className="text-gray-600">{message}</p>
       {state === 'error' && (
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
         >
           Try Again
         </button>

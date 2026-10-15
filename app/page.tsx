@@ -328,21 +328,21 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setSituation('Romantic date night at home with my partner')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
                   >
                     Romantic date night at home
                   </button>
                   <button
                     type="button"
                     onClick={() => setSituation('Exciting action movie to watch with friends on Friday')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
                   >
                     Action movie with friends
                   </button>
                   <button
                     type="button"
                     onClick={() => setSituation('Thoughtful drama to watch alone on a rainy Sunday')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200"
+                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
                   >
                     Thoughtful solo drama
                   </button>
