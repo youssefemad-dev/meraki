@@ -58,6 +58,6 @@ const LoadingState: React.FC<LoadingStateProps> = memo(({ state, errorMessage })
       )}
     </div>
   );
-};
+});
 
 export default LoadingState;

@@ -85,7 +85,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = memo(({ recommenda
       </div>
     </div>
   );
-};
-
+});
 
 export default RecommendationCard;

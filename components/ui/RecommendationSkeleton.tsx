@@ -20,6 +20,6 @@ const RecommendationSkeleton: React.FC<{ count?: number }> = memo(({ count = 4 }
       ))}
     </Fragment>
   );
-};
+});
 
 export default RecommendationSkeleton;
