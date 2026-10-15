@@ -20,18 +20,15 @@ export async function POST(request: Request) {
     // Step 1: Interpret preferences from situation description
     const preferences = await interpretSituation(situation);
 
-      // Validate with Zod schema (would throw if invalid)
-      // In a real implementation, we'd use the actual Zod schema from '@/lib/schemas/preferences'
-      // For now, we'll assume our mock function returns valid preferences
-    } catch (error) {
+    // Step 2: Fetch movies from TMDB based on genre preferences
+    const apiKey = process.env.TMDB_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'Failed to interpret preferences from situation' },
-        { status: 400 }
+        { error: 'TMDB API key is not configured' },
+        { status: 500 }
       );
     }
-
-    // Step 2: Fetch movies from TMDB based on genre preferences
-    const tmdbClient = new TMDBClient(process.env.TMDB_API_KEY!);
+    const tmdbClient = new TMDBClient(apiKey);
 
     // Convert genre preferences to TMDB genre IDs
     const genreNameToIdMap: Record<string, number> = {
