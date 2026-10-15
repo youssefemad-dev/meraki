@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 
 interface LoadingStateProps {
   state: 'idle' | 'interpreting' | 'matching' | 'explaining' | 'success' | 'error';
   errorMessage?: string;
 }
 
-const LoadingState: React.FC<LoadingStateProps> = ({ state, errorMessage }) => {
+const LoadingState: React.FC<LoadingStateProps> = memo(({ state, errorMessage }) => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {

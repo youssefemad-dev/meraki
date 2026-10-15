@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import LoadingState from '@/components/ui/LoadingState';
 import RecommendationCard from '@/components/ui/RecommendationCard';
 import RefinementPanel from '@/components/ui/RefinementPanel';
@@ -6,7 +6,7 @@ import { InterpretedPreferences, RefinementAction } from '@/lib/schemas/preferen
 import { RecommendationScore } from '@/lib/recommendations/score';
 
 export default function Home() {
-  const preferencesToSituation = (prefs: InterpretedPreferences): string => {
+  const preferencesToSituation = useMemo((prefs: InterpretedPreferences): string => {
     const parts = [];
 
     if (prefs.genrePreferences?.length) {
@@ -38,7 +38,7 @@ export default function Home() {
     }
 
     return parts.join(' ');
-  };
+  }, []);
   const [situation, setSituation] = useState('');
   const [interpretedPreferences, setInterpretedPreferences] = useState<InterpretedPreferences | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationScore[]>([]);

@@ -1,6 +1,6 @@
-import { Fragment } from 'react';
+import { Fragment, memo } from 'react';
 
-const RecommendationSkeleton: React.FC<{ count?: number }> = ({ count = 4 }) => {
+const RecommendationSkeleton: React.FC<{ count?: number }> = memo(({ count = 4 }) => {
   return (
     <Fragment>
       {Array.from({ length: count }).map((_, index) => (

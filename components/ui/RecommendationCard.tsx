@@ -1,11 +1,12 @@
 import { RecommendationScore } from '@/lib/recommendations/score';
+import { memo } from 'react';
 
 interface RecommendationCardProps {
   recommendation: RecommendationScore;
   index: number;
 }
 
-const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommendation, index }) => {
+const RecommendationCard: React.FC<RecommendationCardProps> = memo(({ recommendation, index }) => {
   const { movie, score, matchReasons } = recommendation;
   const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
@@ -85,5 +86,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({ recommendation,
     </div>
   );
 };
+
 
 export default RecommendationCard;
