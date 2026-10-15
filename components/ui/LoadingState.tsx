@@ -34,10 +34,20 @@ const LoadingState: React.FC<LoadingStateProps> = memo(({ state, errorMessage })
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="flex items-center justify-center w-14 h-14 mb-4">
-        {/* Custom spinner */}
-        <div className="h-5 w-5 border-t-2 border-b-2 border-l-2 border-indigo-600 rounded-full animate-spin"></div>
+        {/* Custom spinner with aria-label for accessibility */}
+        <div
+          role="img"
+          aria-label="Loading"
+          className="h-5 w-5 border-t-2 border-b-2 border-l-2 border-indigo-600 rounded-full animate-spin"
+        ></div>
       </div>
-      <p className="text-gray-600">{message}</p>
+      {/* Live region for announcing loading state changes */}
+      <p
+        aria-live="polite"
+        className="text-gray-600"
+      >
+        {message}
+      </p>
       {state === 'error' && (
         <button
           onClick={() => window.location.reload()}

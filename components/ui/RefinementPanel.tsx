@@ -34,6 +34,7 @@ export default function RefinementPanel({
                 name="refine"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
+                aria-label="Change desired experience"
               />
             </div>
             <div className="ml-3 space-y-1">
@@ -59,6 +60,7 @@ export default function RefinementPanel({
                 name="refine"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
+                aria-label="Adjust mood"
               />
             </div>
             <div className="ml-3 space-y-1">
@@ -84,6 +86,7 @@ export default function RefinementPanel({
                 name="refine"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
+                aria-label="Adjust intensity"
               />
             </div>
             <div className="ml-3 space-y-1">
@@ -109,6 +112,7 @@ export default function RefinementPanel({
                 name="refine"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
+                aria-label="Add a theme"
               />
             </div>
             <div className="ml-3 space-y-1">
@@ -134,6 +138,7 @@ export default function RefinementPanel({
                 name="refine"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 disabled={loadingState !== 'idle' && loadingState !== 'error'}
+                aria-label="Avoid certain content"
               />
             </div>
             <div className="ml-3 space-y-1">

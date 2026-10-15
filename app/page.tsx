@@ -192,7 +192,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-12 sm:px-6 lg:px-8 px-4">
+      <main className="max-w-7xl mx-auto py-12 sm:px-6 lg:px-8 px-4" id="main-content">
         <div className="lg:grid lg:grid-cols-3 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
@@ -272,6 +272,16 @@ export default function Home() {
 
                 <div className="mt-8">
                   <h2 className="sr-only">Recommendations</h2>
+                  {/* Live region for screen readers to announce recommendation updates */}
+                  <div
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="sr-only"
+                  >
+                    {loadingState === 'success' && recommendations.length > 0 && (
+                      `Found ${recommendations.length} movie recommendations.`
+                    )}
+                  </div>
                   {loadingState === 'success' && recommendations.length > 0 ? (
                     <div className="space-y-6">
                       {recommendations.map((rec, index) => (
