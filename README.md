@@ -1,23 +1,25 @@
 # Meraki - AI-Powered Entertainment Discovery
 
-Meraki is an AI-powered entertainment discovery application that helps users find movies based on natural language descriptions of their movie-watching situation, mood, and preferences.
+Meraki is an entertainment discovery application that helps users find movies based on natural-language descriptions of their movie-watching situation, mood, and preferences.
 
 ## Features
 
 - **Natural Language Processing**: Describe your movie night situation in plain English
-- **AI-Powered Interpretation**: Understands your preferences, mood, and desired experience
-- **Personalized Recommendations**: Gets movies that match your specific context
-- **Refinement System**: Iteratively improve results by adjusting preferences
+- **Story Similarity**: Finds films whose central relationships and plots echo your situation
+- **Personalized Recommendations**: Matches real TMDB films to your story, not just a genre or mood
 - **Explainable AI**: See why each movie was recommended
 - **Responsive Design**: Works on desktop and mobile devices
-- **Dark Mode Support**: Automatic dark/light mode based on system preferences
+
+The app uses NVIDIA's hosted model both to interpret natural-language situations and to select and explain multiple recommendations from real TMDB movie candidates. The model is prompted to understand misspellings, slang, fragments, and speech-to-text errors. There is no local-rule or popular-movie fallback: if interpretation or LLM ranking fails, the API returns an explicit error. TMDB supplies the available candidate catalog; the LLM alone decides which candidates fit the user's story. NVIDIA's hosted API catalog is intended for prototyping and evaluation; check NVIDIA's current terms before using it in production.
+
+Movie candidates come from the LLM-generated plot keyword searches plus multiple TMDB discovery pages by interpreted genre. TMDB's catalogue is queried on demand; the app does not download or exhaustively enumerate every title in the catalogue for each request.
 
 ## Architecture
 
 Meraki follows a client-server architecture:
 
 ### Client (Next.js Frontend)
-- React 18 with Next.js 16 (App Router)
+- React 19 with Next.js 16 (App Router)
 - TypeScript for type safety
 - Tailwind CSS for styling
 - Component-based UI with reusable components
@@ -30,8 +32,7 @@ Meraki follows a client-server architecture:
 - **Preference Interpretation**: Converts natural language to structured preferences
 - **TMDB Integration**: Fetches movie data from The Movie Database API
 - **Constraint Filtering**: Applies hard constraints (adult content, runtime, etc.)
-- **Scoring Algorithm**: Ranks movies based on genre match, theme match, rating, and recency
-- **Refinement System**: Allows iterative preference adjustment
+- **LLM Movie Selection**: The hosted model ranks real TMDB candidates by how their plot summaries relate to the user's described situation and provides the explanations
 
 ## Getting Started
 
@@ -49,6 +50,7 @@ Meraki follows a client-server architecture:
 3. Create a `.env.local` file in the root directory:
    ```env
    TMDB_API_KEY=your_tmdb_api_key_here
+   NVIDIA_API_KEY=your_nvidia_api_key_here
    ```
 4. Run the development server:
    ```bash
@@ -83,15 +85,25 @@ Processes a situation description and returns movie recommendations.
   },
   "recommendations": [
     {
-      "id": 12345,
-      "title": "Movie Title",
-      "overview": "Movie description...",
-      "poster_path": "/path/to/poster.jpg",
-      "release_date": "2023-05-15",
-      "vote_average": 8.5,
-      "vote_count": 1234,
-      "runtime": 120,
+      "movie": {
+        "id": 12345,
+        "title": "Movie Title",
+        "overview": "Movie description...",
+        "genre_ids": [10749, 18],
+        "poster_path": "/path/to/poster.jpg",
+        "release_date": "2023-05-15",
+        "vote_average": 8.5,
+        "vote_count": 1234,
+        "runtime": 120,
+        "adult": false
+      },
       "score": 85.5,
+      "breakdown": {
+        "genreMatch": 0.8,
+        "themeMatch": 0.7,
+        "ratingBoost": 0.9,
+        "recencyBoost": 0.8
+      },
       "matchReasons": [
         "Strong genre match with Romance, Drama",
         "Themes of love, relationships align with your preferences",
@@ -100,6 +112,13 @@ Processes a situation description and returns movie recommendations.
       ]
     }
   ]
+}
+```
+
+To rediscover with refined preferences without reinterpreting natural language, send a validated `preferences` object instead of `situation`:
+```json
+{
+  "preferences": {/* current interpreted preferences */}
 }
 ```
 
@@ -130,7 +149,6 @@ Refines existing preferences based on user feedback.
 - `LoadingState` - Shows contextual messages during different loading states
 - `RecommendationCard` - Displays movie information with score and match reasons
 - `RecommendationSkeleton` - Placeholder UI while content is loading
-- `RefinementPanel` - Controls for adjusting preferences to refine results
 
 ### Key Features
 - All components are fully responsive
@@ -168,8 +186,11 @@ Meraki's refinement system allows users to iteratively improve their movie recom
 ### Vercel (Recommended)
 1. Push code to GitHub repository
 2. Import project in Vercel dashboard
-3. Add `TMDB_API_KEY` environment variable
-4. Deploy
+3. In **Project Settings → Environment Variables**, add `TMDB_API_KEY` with the TMDB key as its value. Enable it for Production and Preview (and Development if using Vercel CLI).
+4. Also add `NVIDIA_API_KEY` to enable both hosted LLM interpretation and movie selection; set `NVIDIA_MODEL` to a model available to your NVIDIA account if the default model is unavailable. The app will show an explicit error if AI is unavailable; it will not silently return generic recommendations.
+5. Deploy or redeploy after adding/changing the variables. Vercel injects them into the server-side functions at runtime.
+
+Do not add the key to `vercel.json`, client-side code, or a committed file. For local development, put it in the Git-ignored `.env.local` file in the project root.
 
 ### Other Platforms
 Meraki can be deployed to any platform that supports Next.js applications.

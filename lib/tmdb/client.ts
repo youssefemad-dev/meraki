@@ -1,7 +1,21 @@
+export interface TmdbMovieResult {
+  id: number;
+  title: string;
+  overview?: string;
+  genre_ids?: number[];
+  release_date?: string;
+  vote_average?: number;
+  vote_count?: number;
+  popularity?: number;
+  runtime?: number | null;
+  adult?: boolean;
+  poster_path?: string | null;
+}
+
 export class TMDBClient {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.themoviedb.org/3';
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private readonly cacheDuration = 5 * 60 * 1000; // 5 minutes
   private readonly maxCacheSize = 100; // Limit cache size to prevent memory leaks
 
@@ -16,7 +30,7 @@ export class TMDBClient {
     // Check if we have a cached response that's still valid
     const cached = this.cache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < this.cacheDuration) {
-      return cached.data;
+      return cached.data as T;
     }
 
     const url = new URL(`${this.baseUrl}${endpoint}`);
@@ -32,7 +46,7 @@ export class TMDBClient {
       throw new Error(`TMDB API error: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result: T = await response.json();
 
     // Cache the result
     this.cache.set(cacheKey, {
@@ -51,34 +65,71 @@ export class TMDBClient {
     return result;
   }
 
-  async fetchDiscoverMovies(genreIds: number[], options: { page?: number } = {}): Promise<any[]> {
+  async fetchDiscoverMovies(
+    genreIds: number[],
+    options: {
+      page?: number;
+      sortBy?: 'popularity.desc' | 'vote_average.desc';
+      minVoteCount?: number;
+    } = {}
+  ): Promise<TmdbMovieResult[]> {
     const params: Record<string, string | number | boolean> = {
       with_genres: genreIds.join(','),
-      sort_by: 'popularity.desc',
+      sort_by: options.sortBy ?? 'popularity.desc',
       page: options.page ?? 1
     };
+    if (options.minVoteCount !== undefined) {
+      params['vote_count.gte'] = options.minVoteCount;
+    }
 
-    const response = await this.fetch<{ results: any[] }>('/discover/movie', params);
+    const response = await this.fetch<{ results: TmdbMovieResult[] }>('/discover/movie', params);
     return response.results;
   }
 
-  async fetchPopularMovies(options: { page?: number } = {}): Promise<any[]> {
+  async searchMovies(query: string, options: { page?: number } = {}): Promise<TmdbMovieResult[]> {
+    const response = await this.fetch<{ results: TmdbMovieResult[] }>('/search/movie', {
+      query,
+      include_adult: false,
+      page: options.page ?? 1
+    });
+    return response.results ?? [];
+  }
+
+  async searchKeyword(query: string): Promise<Array<{ id: number; name: string }>> {
+    const response = await this.fetch<{ results: Array<{ id: number; name: string }> }>(
+      '/search/keyword',
+      { query, page: 1 }
+    );
+    return response.results ?? [];
+  }
+
+  async fetchMoviesByKeywords(keywordIds: number[], options: { page?: number } = {}): Promise<TmdbMovieResult[]> {
+    if (keywordIds.length === 0) return [];
+    const response = await this.fetch<{ results: TmdbMovieResult[] }>('/discover/movie', {
+      with_keywords: keywordIds.join('|'),
+      sort_by: 'popularity.desc',
+      page: options.page ?? 1
+    });
+    return response.results ?? [];
+  }
+
+  async fetchPopularMovies(options: { page?: number } = {}): Promise<TmdbMovieResult[]> {
     const params: Record<string, string | number | boolean> = {
       sort_by: 'popularity.desc',
       page: options.page ?? 1
     };
 
-    const response = await this.fetch<{ results: any[] }>('/movie/popular', params);
+    const response = await this.fetch<{ results: TmdbMovieResult[] }>('/movie/popular', params);
     return response.results;
   }
 
-  async fetchTopRatedMovies(options: { page?: number } = {}): Promise<any[]> {
+  async fetchTopRatedMovies(options: { page?: number } = {}): Promise<TmdbMovieResult[]> {
     const params: Record<string, string | number | boolean> = {
       sort_by: 'vote_average.desc',
       page: options.page ?? 1
     };
 
-    const response = await this.fetch<{ results: any[] }>('/movie/top_rated', params);
+    const response = await this.fetch<{ results: TmdbMovieResult[] }>('/movie/top_rated', params);
     return response.results;
   }
 
@@ -90,7 +141,7 @@ export class TMDBClient {
     this.cache.clear();
   }
 
-  async fetchMovieDetails(movieId: number): Promise<any> {
+  async fetchMovieDetails(movieId: number): Promise<TmdbMovieResult> {
     return this.fetch(`/movie/${movieId}`);
   }
 }

@@ -5,6 +5,7 @@ export interface RecommendationScore {
   movie: TmdbMovie;
   score: number; // 0-100
   breakdown: {
+    storyMatch?: number;      // 0-1
     genreMatch: number;      // 0-1
     themeMatch: number;      // 0-1
     ratingBoost: number;     // 0-1
@@ -14,18 +15,36 @@ export interface RecommendationScore {
 }
 
 // Weights for the scoring algorithm (must sum to 1.0)
-const WEIGHTS = {
-  genreMatch: 0.4,
-  themeMatch: 0.3,
-  ratingBoost: 0.2,
-  recencyBoost: 0.1
+const STORY_CONCEPTS: Record<string, string[][]> = {
+  'parent-child-ambivalence': [
+    ['mother', 'mom', 'mum', 'father', 'dad', 'parent', 'daughter', 'son', 'child'],
+    ['strained', 'complicated', 'difficult', 'conflict', 'clash', 'tension', 'resentment', 'distant', 'dislike', 'relationship']
+  ],
+  'parent-child-relationship': [
+    ['mother', 'mom', 'mum', 'father', 'dad', 'parent', 'daughter', 'son', 'child'],
+    ['relationship', 'bond', 'family', 'raising', 'growing up', 'reconcile']
+  ],
+  'loneliness-and-connection': [
+    ['lonely', 'loneliness', 'alone', 'isolated', 'isolation', 'alienated', 'disconnected', 'disconnection'],
+    ['connection', 'connect', 'bond', 'friendship', 'relationship', 'unlikely', 'companionship', 'understand', 'together']
+  ],
+  'post-graduation-transition': [
+    ['graduation', 'graduate', 'graduated', 'college', 'university', 'campus'],
+    ['adulthood', 'adult', 'twenties', 'after college', 'next chapter', 'career', 'future']
+  ],
+  'finding-direction': [
+    ['lost', 'uncertain', 'confused', 'adrift', 'direction', 'purpose', 'meaning'],
+    ['find direction', 'searching for', 'figure out', 'discover a path', 'find purpose']
+  ],
+  'uncertainty-and-direction': [
+    ['overwhelmed', 'stressed', 'stuck', 'unsure', 'uncertain', 'adrift', 'lost'],
+    ['what to do next', 'next step', 'finding direction', 'find purpose', 'where to start', 'path forward', 'find herself', 'find himself', 'find themselves', 'finds herself', 'finds himself', 'finds themselves']
+  ],
+  'family-conflict': [
+    ['family', 'mother', 'mom', 'mum', 'father', 'dad', 'parent', 'daughter', 'son', 'sibling'],
+    ['strained', 'complicated', 'difficult', 'conflict', 'clash', 'tension', 'resentment', 'distant', 'dispute']
+  ]
 };
-
-// Helper function to normalize a value to 0-1 range
-function normalize(value: number, min: number, max: number): number {
-  if (max === min) return 0.5;
-  return Math.max(0, Math.min(1, (value - min) / (max - min)));
-}
 
 export function scoreAndRankMovies(
   movies: TmdbMovie[],
@@ -86,6 +105,59 @@ export function scoreAndRankMovies(
           ).length / themeKeywords.length)
         : 0.5; // Neutral if no themes specified
 
+      // Match the situation's relationship/story concepts against plot summaries.
+      const overview = movie.overview.toLowerCase();
+      const includesTerm = (text: string, term: string) => {
+        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`\\b${escapedTerm}\\b`).test(text);
+      };
+      const storySignals = preferences.storySignals ?? [];
+      const storyBuckets = storySignals.flatMap(signal => STORY_CONCEPTS[signal] ?? []);
+      const signalMatch = storySignals.some(signal => {
+        const buckets = STORY_CONCEPTS[signal] ?? [];
+        return buckets.length > 0 && buckets.every(bucket =>
+          bucket.some(term => includesTerm(overview, term))
+        );
+      }) ? 1 : 0;
+      const aliases: Record<string, string[]> = {
+        mother: ['mother', 'mom', 'mum'], mom: ['mother', 'mom', 'mum'],
+        daughter: ['daughter', 'girl', 'teenage', 'teen'],
+        teenage: ['teenage', 'teen', 'high school'],
+        'coming of age': ['coming of age', 'teenage', 'high school', 'growing up'],
+        strained: ['strained', 'complicated', 'difficult', 'conflict', 'tension'],
+        complicated: ['complicated', 'strained', 'difficult', 'conflict', 'tension'],
+        loneliness: ['loneliness', 'lonely', 'alone', 'isolated', 'isolation', 'alienated'],
+        isolation: ['isolation', 'isolated', 'lonely', 'alone', 'disconnected'],
+        connection: ['connection', 'connect', 'bond', 'relationship', 'friendship', 'companionship'],
+        unexpected: ['unexpected', 'unlikely', 'unusual'],
+        graduation: ['graduation', 'graduate', 'graduated', 'college', 'university'],
+        'post-graduation': ['graduation', 'graduate', 'college', 'university', 'after school'],
+        college: ['college', 'university', 'campus', 'graduate', 'graduation'],
+        adulthood: ['adulthood', 'adult', 'grown up', 'twenties'],
+        uncertainty: ['uncertain', 'uncertainty', 'unsure', 'confused', 'lost', 'stuck'],
+        future: ['uncertain future', 'future plans', 'future direction'],
+        'next step': ['next step', 'what to do next', 'where to start'],
+        direction: ['finding direction', 'find direction', 'direction in life'],
+        purpose: ['purpose', 'meaning', 'calling'],
+        overwhelmed: ['overwhelmed', 'stressed', 'burdened', 'overloaded'],
+        finding: ['finding', 'find', 'finds', 'searching', 'discovering', 'figure out'],
+        yourself: ['yourself', 'herself', 'himself', 'themselves'],
+        self: ['yourself', 'herself', 'himself', 'themselves'],
+        discovery: ['discovery', 'discover', 'discovering', 'finding']
+      };
+      const storyKeywords = preferences.storyKeywords ?? [];
+      const keywordScores = storyKeywords.map(keyword => {
+        const terms = keyword.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 3 && !['relationship', 'between', 'about'].includes(term));
+        if (terms.length === 0) return 0;
+        const matchedTerms = terms.filter(term => (aliases[term] ?? [term]).some(alias => includesTerm(overview, alias)));
+        return terms.length > 1 && matchedTerms.length < 2
+          ? 0
+          : matchedTerms.length / terms.length;
+      });
+      const keywordMatch = keywordScores.length ? Math.max(...keywordScores) : 0;
+      const storyMatch = storyBuckets.length ? signalMatch : keywordMatch;
+      const hasStoryIntent = storySignals.length > 0 || storyKeywords.length > 0;
+
       // Calculate ratingBoost: normalized vote average, weighted by vote_count (Bayesian)
       // Using a simplified Bayesian average: (v/(v+m))*R + (m/(v+m))*C
       // where v = vote_count, m = minimum votes (say 100), R = movie rating, C = average vote (say 7.0)
@@ -107,19 +179,51 @@ export function scoreAndRankMovies(
       const recencyBoost = Math.max(0, Math.min(1, 1 - (yearsOld / 50)));
 
       // Calculate final score (0-100)
+      const weights = hasStoryIntent
+        ? { storyMatch: 0.7, genreMatch: 0.1, themeMatch: 0.1, ratingBoost: 0.08, recencyBoost: 0.02 }
+        : { storyMatch: 0, genreMatch: 0.4, themeMatch: 0.3, ratingBoost: 0.2, recencyBoost: 0.1 };
       const score = (
-        WEIGHTS.genreMatch * genreMatch +
-        WEIGHTS.themeMatch * themeMatch +
-        WEIGHTS.ratingBoost * ratingBoost +
-        WEIGHTS.recencyBoost * recencyBoost
+        weights.storyMatch * storyMatch +
+        weights.genreMatch * genreMatch +
+        weights.themeMatch * themeMatch +
+        weights.ratingBoost * ratingBoost +
+        weights.recencyBoost * recencyBoost
       ) * 100;
 
       // Generate match reasons based on actual data
       const matchReasons: string[] = [];
 
-      if (genreMatch > 0.7) {
+      if (storyMatch >= 0.4) {
+        const storyDescriptions: Record<string, string> = {
+          'parent-child-ambivalence': 'a complicated parent-child relationship',
+          'parent-child-relationship': 'a parent-child relationship',
+          'loneliness-and-connection': 'loneliness and human connection',
+          'post-graduation-transition': 'the transition after graduation',
+          'finding-direction': 'finding direction and purpose',
+          'uncertainty-and-direction': 'uncertainty about what comes next',
+          'family-conflict': 'family conflict'
+        };
+        const matchedStory = storySignals
+          .filter(signal => {
+            const buckets = STORY_CONCEPTS[signal] ?? [];
+            return buckets.length > 0 && buckets.every(bucket =>
+              bucket.some(term => includesTerm(overview, term))
+            );
+          })
+          .map(signal => storyDescriptions[signal])
+          .filter((description): description is string => Boolean(description));
+        if (matchedStory.length) {
+          matchReasons.push(`The plot connects with ${matchedStory.join(' and ')}`);
+        } else if (preferences.situationSummary) {
+          matchReasons.push(`The plot relates to your situation: "${preferences.situationSummary}"`);
+        } else {
+          matchReasons.push('The plot connects with the situation you described');
+        }
+      }
+
+      if (genreMatch > 0.7 && (!hasStoryIntent || storyMatch >= 0.75)) {
         matchReasons.push(`Strong genre match with ${matchingGenres.join(', ')}`);
-      } else if (genreMatch > 0.3) {
+      } else if (genreMatch > 0.3 && (!hasStoryIntent || storyMatch >= 0.75)) {
         matchReasons.push(`Good genre match with ${matchingGenres.join(', ')}`);
       }
 
@@ -127,13 +231,13 @@ export function scoreAndRankMovies(
         matchReasons.push(`Themes of ${themeKeywords.slice(0, 2).join(', ')} align with your preferences`);
       }
 
-      if (ratingBoost > 0.7) {
+      if (ratingBoost > 0.7 && (!hasStoryIntent || storyMatch >= 0.75)) {
         matchReasons.push(`Highly rated by audiences (${movie.vote_average}/10 from ${movie.vote_count} votes)`);
       }
 
-      if (recencyBoost > 0.8) {
+      if (!hasStoryIntent && recencyBoost > 0.8) {
         matchReasons.push(`Recent release (${releaseYear}) that fits your taste for contemporary films`);
-      } else if (recencyBoost > 0.5) {
+      } else if (!hasStoryIntent && recencyBoost > 0.5) {
         matchReasons.push(`Well-regarded film from ${releaseYear} with lasting appeal`);
       }
 
@@ -146,6 +250,7 @@ export function scoreAndRankMovies(
         movie,
         score: Math.round(score * 10) / 10, // Keep one decimal place
         breakdown: {
+          storyMatch: Number(storyMatch.toFixed(3)),
           genreMatch: Number(genreMatch.toFixed(3)),
           themeMatch: Number(themeMatch.toFixed(3)),
           ratingBoost: Number(ratingBoost.toFixed(3)),

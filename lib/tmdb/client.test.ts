@@ -41,4 +41,36 @@ describe('TMDBClient', () => {
 
     await expect(client.fetchDiscoverMovies([28])).rejects.toThrow('TMDB API error: 500');
   });
+
+  it('should discover beyond the most popular page', async () => {
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [{ id: 3, title: 'Less Popular Gem' }] })
+    });
+
+    const result = await client.fetchDiscoverMovies([18], {
+      page: 2,
+      sortBy: 'vote_average.desc',
+      minVoteCount: 100
+    });
+
+    expect(result).toEqual([{ id: 3, title: 'Less Popular Gem' }]);
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.themoviedb.org/3/discover/movie?api_key=test-api-key&with_genres=18&sort_by=vote_average.desc&page=2&vote_count.gte=100'
+    );
+  });
+
+  it('searches the full movie catalogue by a story concept', async () => {
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [{ id: 4, title: 'Story Match' }] })
+    });
+
+    const result = await client.searchMovies('unexpected connection');
+
+    expect(result).toEqual([{ id: 4, title: 'Story Match' }]);
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.themoviedb.org/3/search/movie?api_key=test-api-key&query=unexpected+connection&include_adult=false&page=1'
+    );
+  });
 });

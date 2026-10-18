@@ -2,23 +2,46 @@ import { NextResponse } from 'next/server';
 import { TMDBClient } from '@/lib/tmdb/client';
 import { normalizeMovie } from '@/lib/tmdb/normalize';
 import { applyHardConstraints } from '@/lib/recommendations/filter';
-import { scoreAndRankMovies, RecommendationScore } from '@/lib/recommendations/score';
 import { InterpretedPreferences } from '@/lib/schemas/preferences';
-import { interpretSituation } from '@/lib/interpretation/llmService';
+import type { InterpretedPreferences as InterpretedPreferencesType } from '@/lib/schemas/preferences';
+import { AiServiceError, interpretSituation, selectMovieRecommendations } from '@/lib/interpretation/llmService';
+
+export const maxDuration = 90;
 
 export async function POST(request: Request) {
   try {
-    const { situation } = await request.json();
+    const body: unknown = await request.json();
 
-    if (!situation || typeof situation !== 'string') {
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'A valid request body is required' },
+        { status: 400 }
+      );
+    }
+
+    const { situation, preferences: suppliedPreferences } = body as {
+      situation?: unknown;
+      preferences?: unknown;
+    };
+
+    let preferences: InterpretedPreferencesType;
+    if (suppliedPreferences !== undefined) {
+      const parsedPreferences = InterpretedPreferences.safeParse(suppliedPreferences);
+      if (!parsedPreferences.success) {
+        return NextResponse.json(
+          { error: 'Valid preferences are required' },
+          { status: 400 }
+        );
+      }
+      preferences = parsedPreferences.data;
+    } else if (typeof situation === 'string' && situation.trim()) {
+      preferences = await interpretSituation(situation);
+    } else {
       return NextResponse.json(
         { error: 'Situation description is required' },
         { status: 400 }
       );
     }
-
-    // Step 1: Interpret preferences from situation description
-    const preferences = await interpretSituation(situation);
 
     // Step 2: Fetch movies from TMDB based on genre preferences
     const apiKey = process.env.TMDB_API_KEY;
@@ -57,42 +80,57 @@ export async function POST(request: Request) {
       .map(genre => genreNameToIdMap[genre])
       .filter((id): id is number => id !== undefined);
 
-    // If no valid genre IDs, use a default popular genre
-    const effectiveGenreIds = genreIds.length > 0 ? genreIds : [28]; // Default to Action
-
-    // Fetch discover movies
-    const tmdbResponse = await tmdbClient.fetchDiscoverMovies(effectiveGenreIds, { page: 1 });
+    const genreSearches = [...new Set(genreIds)].flatMap(id => [
+      tmdbClient.fetchDiscoverMovies([id], { page: 1 }),
+      tmdbClient.fetchDiscoverMovies([id], { page: 2 }),
+      tmdbClient.fetchDiscoverMovies([id], {
+        page: 1,
+        sortBy: 'vote_average.desc',
+        minVoteCount: 100
+      })
+    ]);
+    const storyQueries = [...new Set(preferences.storyKeywords ?? [])].slice(0, 4);
+    const storyReferences = [...new Set(preferences.storyReferences ?? [])].slice(0, 5);
+    const tmdbResponses: Awaited<ReturnType<typeof tmdbClient.searchMovies>>[] = [];
+    if (storyReferences.length > 0) {
+      tmdbResponses.push(...await Promise.all(storyReferences.map(title => tmdbClient.searchMovies(title))));
+    }
+    if (storyQueries.length > 0) {
+      const targetedQueries = storyQueries;
+      const [keywordSearches, movieSearches] = await Promise.all([
+        Promise.all(targetedQueries.map(query => tmdbClient.searchKeyword(query))),
+        Promise.all(targetedQueries.map(query => tmdbClient.searchMovies(query)))
+      ]);
+      tmdbResponses.push(...movieSearches);
+      const keywordIds = [...new Set(keywordSearches.flatMap(results => results.slice(0, 2).map(result => result.id)))];
+      if (keywordIds.length > 0) {
+        tmdbResponses.push(await tmdbClient.fetchMoviesByKeywords(keywordIds));
+      }
+    }
+    tmdbResponses.push(...await Promise.all(genreSearches));
 
     // Normalize TMDB responses
-    const movies: any[] = Array.isArray(tmdbResponse.results) ? tmdbResponse.results : [];
+    const movies = [...new Map(tmdbResponses.flat().map(movie => [movie.id, movie])).values()];
     const normalizedMovies = movies.map(normalizeMovie);
 
     // Step 3: Apply hard constraints
     const filteredMovies = applyHardConstraints(normalizedMovies, preferences.constraints);
 
-    // Step 4: Score and rank movies
-    const scoredMovies: RecommendationScore[] = scoreAndRankMovies(filteredMovies, preferences);
+    // Let the LLM select and explain every recommended movie from real TMDB candidates.
+    const recommendations = await selectMovieRecommendations(
+      typeof situation === 'string' ? situation : preferences.situationSummary ?? '',
+      preferences,
+      filteredMovies
+    );
 
-    // Step 5: Take top 10 recommendations
-    const topRecommendations = scoredMovies.slice(0, 10);
-
-    // Step 6: Format response
     return NextResponse.json({
-      preferences, // Return the interpreted preferences for transparency
-      recommendations: topRecommendations.map(rec => ({
-        id: rec.movie.id,
-        title: rec.movie.title,
-        overview: rec.movie.overview,
-        poster_path: rec.movie.poster_path,
-        release_date: rec.movie.release_date,
-        vote_average: rec.movie.vote_average,
-        vote_count: rec.movie.vote_count,
-        runtime: rec.movie.runtime,
-        score: rec.score,
-        matchReasons: rec.matchReasons
-      }))
+      preferences,
+      recommendations
     });
   } catch (error) {
+    if (error instanceof AiServiceError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     console.error('Error in discover API route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,81 +1,133 @@
-import { interpretSituation } from './llmService';
+import { interpretSituation, selectMovieRecommendations, AiServiceError } from './llmService';
+import type { InterpretedPreferences } from '../schemas/preferences';
+import type { TmdbMovie } from '../tmdb/normalize';
 
-describe('LLM Preference Interpretation Service', () => {
-  it('should interpret action movie preferences', async () => {
-    const situation = 'I want to watch an exciting action movie with lots of fight scenes';
-    const preferences = await interpretSituation(situation);
+describe('LLM movie interpretation and selection', () => {
+  const previousNvidiaKey = process.env.NVIDIA_API_KEY;
+  const previousFetch = global.fetch;
+  const preferences: InterpretedPreferences = {
+    situationSummary: 'You feel isolated and want an unexpected human connection.',
+    genrePreferences: ['Drama', 'Romance'],
+    storySignals: ['loneliness-and-connection'],
+    storyKeywords: ['quiet loneliness', 'unexpected friendship', 'unlikely connection'],
+    mood: 'melancholic',
+    themes: ['connection', 'isolation'],
+    pace: null,
+    contentToAvoid: [],
+    desiredExperience: 'comfort',
+    intensity: null,
+    constraints: { excludeAdultContent: true }
+  };
+  const candidates: TmdbMovie[] = [1, 2, 3, 4].map(id => ({
+    id,
+    title: `Candidate ${id}`,
+    overview: `A thoughtful story about loneliness and an unexpected connection, number ${id}.`,
+    genre_ids: [18, 10749],
+    release_date: '2020-01-01',
+    vote_average: 7.5,
+    vote_count: 500,
+    popularity: 30,
+    runtime: 110,
+    adult: false,
+    poster_path: null
+  }));
 
-    expect(preferences.genrePreferences).toContain('Action');
-    expect(preferences.genrePreferences).toContain('Adventure');
-    expect(preferences.mood).toBe('energetic');
-    expect(preferences.themes).toContain('exciting');
-    expect(preferences.pace).toBe('fast');
+  afterEach(() => {
+    global.fetch = previousFetch;
+    if (previousNvidiaKey === undefined) {
+      delete process.env.NVIDIA_API_KEY;
+    } else {
+      process.env.NVIDIA_API_KEY = previousNvidiaKey;
+    }
+    jest.restoreAllMocks();
   });
 
-  it('should interpret romantic comedy preferences', async () => {
-    const situation = 'Looking for a funny romantic movie to watch on date night';
-    const preferences = await interpretSituation(situation);
+  function mockNvidiaResponse(content: unknown, ok = true, status = 200) {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok,
+      status,
+      json: async () => ({ choices: [{ message: { content } }] })
+    }) as unknown as typeof fetch;
+  }
 
-    expect(preferences.genrePreferences).toContain('Comedy');
-    expect(preferences.genrePreferences).toContain('Romance');
-    expect(preferences.mood).toBe('romantic');
-    expect(preferences.desiredExperience).toBe('romance');
+  it('interprets typo-filled natural language using the LLM without local-rule fallback', async () => {
+    process.env.NVIDIA_API_KEY = 'test-key';
+    const timeoutMock = jest.spyOn(AbortSignal, 'timeout');
+    const rawInput = 'i feel lonley after gradution and dont no wat comes next';
+    const modelResult = {
+      situationSummary: 'You feel lonely and uncertain about life after graduation.',
+      genrePreferences: ['Drama', 'Comedy'],
+      storySignals: ['post-graduation-transition', 'loneliness-and-connection'],
+      storyKeywords: ['loneliness after college', 'uncertain graduates', 'finding direction after graduation'],
+      themes: ['transition', 'connection'],
+      mood: 'melancholic',
+      pace: null,
+      intensity: null,
+      desiredExperience: 'comfort',
+      contentToAvoid: [],
+      constraints: { excludeAdultContent: true }
+    };
+    mockNvidiaResponse(`\`\`\`json\n${JSON.stringify(modelResult)}\n\`\`\``);
+
+    const interpreted = await interpretSituation(rawInput);
+
+    expect(interpreted.situationSummary).toBe(modelResult.situationSummary);
+    expect(interpreted.storySignals).toEqual(modelResult.storySignals);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(rawInput)
+      })
+    );
+    expect(timeoutMock).toHaveBeenCalledWith(35_000);
   });
 
-  it('should handle content to avoid', async () => {
-    const situation = 'I want to watch a movie but nothing too violent or scary';
-    const preferences = await interpretSituation(situation);
+  it('throws a user-visible error if the LLM is not configured', async () => {
+    delete process.env.NVIDIA_API_KEY;
+    global.fetch = jest.fn() as unknown as typeof fetch;
 
-    expect(preferences.contentToAvoid).toContain('violence');
-    expect(preferences.contentToAvoid).toContain('scary');
+    await expect(interpretSituation('I feel lonely')).rejects.toThrow(AiServiceError);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('should handle runtime constraints', async () => {
-    const situation = 'I want to watch a short movie under 90 minutes';
-    const preferences = await interpretSituation(situation);
+  it('throws instead of returning defaults when LLM interpretation fails', async () => {
+    process.env.NVIDIA_API_KEY = 'test-key';
+    mockNvidiaResponse(null, false, 503);
 
-    expect(preferences.constraints.maxRuntimeMinutes).toBe(90);
+    await expect(interpretSituation('i need a movie abt my life rn')).rejects.toThrow(
+      'AI interpretation failed (HTTP 503)'
+    );
   });
 
-  it('should default to drama when no genres detected', async () => {
-    const situation = 'I want to watch something interesting';
-    const preferences = await interpretSituation(situation);
+  it('uses the LLM to choose multiple candidates and only returns IDs from TMDB', async () => {
+    process.env.NVIDIA_API_KEY = 'test-key';
+    const timeoutMock = jest.spyOn(AbortSignal, 'timeout');
+    mockNvidiaResponse(JSON.stringify({
+      recommendations: [
+        { id: 3, score: 94, reason: 'Its plot centers on isolated people forming an unexpected bond.' },
+        { id: 1, score: 88, reason: 'The main character finds companionship while feeling alone.' },
+        { id: 4, score: 82, reason: 'Its story explores connection during a lonely period.' }
+      ]
+    }));
 
-    expect(preferences.genrePreferences).toContain('Drama');
+    const recommendations = await selectMovieRecommendations('i feel lonley', preferences, candidates);
+
+    expect(recommendations.map(result => result.movie.id)).toEqual([3, 1, 4]);
+    expect(recommendations[0].score).toBe(94);
+    expect(recommendations[0].matchReasons[0]).toContain('isolated people');
+    expect((global.fetch as jest.Mock).mock.calls[0][1].body).toContain('Candidate 4');
+    expect(timeoutMock).toHaveBeenCalledWith(35_000);
   });
 
-  it('should return valid preferences object structure', async () => {
-    const situation = 'Test situation';
-    const preferences = await interpretSituation(situation);
+  it('keeps a single relevant recommendation instead of padding the list', async () => {
+    process.env.NVIDIA_API_KEY = 'test-key';
+    mockNvidiaResponse(JSON.stringify({
+      recommendations: [{ id: 1, score: 90, reason: 'A real story match.' }]
+    }));
 
-    // Check that all required fields are present
-    expect(preferences).toHaveProperty('genrePreferences');
-    expect(preferences).toHaveProperty('mood');
-    expect(preferences).toHaveProperty('themes');
-    expect(preferences).toHaveProperty('pace');
-    expect(preferences).toHaveProperty('contentToAvoid');
-    expect(preferences).toHaveProperty('desiredExperience');
-    expect(preferences).toHaveProperty('intensity');
-    expect(preferences).toHaveProperty('constraints');
-
-    // Check types
-    expect(Array.isArray(preferences.genrePreferences)).toBe(true);
-    expect(typeof preferences.mood === 'string' || preferences.mood === null).toBe(true);
-    expect(Array.isArray(preferences.themes)).toBe(true);
-    expect(typeof preferences.pace === 'string' || preferences.pace === null).toBe(true);
-    expect(Array.isArray(preferences.contentToAvoid)).toBe(true);
-    expect(typeof preferences.desiredExperience === 'string' || preferences.desiredExperience === null).toBe(true);
-    expect(typeof preferences.intensity === 'string' || preferences.intensity === null).toBe(true);
-    expect(typeof preferences.constraints === 'object').toBe(true);
-  });
-
-  it('should not add duplicate genres', async () => {
-    const situation = 'I want to watch action and adventure movies';
-    const preferences = await interpretSituation(situation);
-
-    // Action and Adventure both map to the same genres, so we should still have only 2 unique genres
-    expect(preferences.genrePreferences.length).toBe(2);
-    expect(preferences.genrePreferences).toContain('Action');
-    expect(preferences.genrePreferences).toContain('Adventure');
+    const recommendations = await selectMovieRecommendations('I feel lonely', preferences, candidates);
+    expect(recommendations).toHaveLength(1);
+    expect(recommendations[0].movie.id).toBe(1);
   });
 });

@@ -102,7 +102,7 @@ describe('Refinement API Route', () => {
     const jsonData = await response.json();
 
     // Should not add duplicate (case insensitive)
-    const redemptionCount = jsonData.preferences.themes.filter(t => t.toLowerCase() === 'redemption').length;
+    const redemptionCount = jsonData.preferences.themes.filter((t: string) => t.toLowerCase() === 'redemption').length;
     expect(redemptionCount).toBe(1);
     expect(jsonData.preferences.themes.length).toBe(basePreferences.themes.length);
     expect(response.status).toBe(200);
@@ -136,7 +136,7 @@ describe('Refinement API Route', () => {
     const jsonData = await response.json();
 
     // Should not add duplicate (case insensitive)
-    const violenceCount = jsonData.preferences.contentToAvoid.filter(c => c.toLowerCase() === 'violence').length;
+    const violenceCount = jsonData.preferences.contentToAvoid.filter((c: string) => c.toLowerCase() === 'violence').length;
     expect(violenceCount).toBe(1);
     expect(jsonData.preferences.contentToAvoid.length).toBe(basePreferences.contentToAvoid.length);
     expect(response.status).toBe(200);
