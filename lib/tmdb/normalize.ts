@@ -12,18 +12,34 @@ export interface TmdbMovie {
   poster_path: string | null;
 }
 
-export function normalizeMovie(rawMovie: any): TmdbMovie {
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export function normalizeMovie(rawMovie: unknown): TmdbMovie {
+  const movie = asRecord(rawMovie);
+
   return {
-    id: rawMovie.id,
-    title: rawMovie.title,
-    overview: rawMovie.overview || '',
-    genre_ids: rawMovie.genre_ids || [],
-    release_date: rawMovie.release_date || '',
-    vote_average: rawMovie.vote_average || 0,
-    vote_count: rawMovie.vote_count || 0,
-    popularity: rawMovie.popularity || 0,
-    runtime: rawMovie.runtime !== null && rawMovie.runtime !== undefined ? rawMovie.runtime : null,
-    adult: rawMovie.adult || false,
-    poster_path: rawMovie.poster_path || null
+    id: finiteNumber(movie.id),
+    title: typeof movie.title === 'string' ? movie.title : '',
+    overview: typeof movie.overview === 'string' ? movie.overview : '',
+    genre_ids: Array.isArray(movie.genre_ids)
+      ? movie.genre_ids.filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+      : [],
+    release_date: typeof movie.release_date === 'string' ? movie.release_date : '',
+    vote_average: finiteNumber(movie.vote_average),
+    vote_count: finiteNumber(movie.vote_count),
+    popularity: finiteNumber(movie.popularity),
+    runtime: movie.runtime === null || movie.runtime === undefined
+      ? null
+      : finiteNumber(movie.runtime, 0),
+    adult: typeof movie.adult === 'boolean' ? movie.adult : false,
+    poster_path: typeof movie.poster_path === 'string' ? movie.poster_path : null
   };
 }

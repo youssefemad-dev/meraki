@@ -62,4 +62,45 @@ describe('TMDB normalization', () => {
     expect(result.adult).toBe(false); // Default value
     expect(result.poster_path).toBeNull(); // Default value
   });
+
+  it('preserves numeric zeroes and safely handles malformed TMDB data', () => {
+    const result = normalizeMovie({
+      id: 0,
+      title: 'Sparse movie',
+      vote_average: 0,
+      vote_count: 0,
+      popularity: 0,
+      genre_ids: [18, '35', null],
+      runtime: 'unknown',
+      adult: 'false',
+      poster_path: 42
+    });
+
+    expect(result).toMatchObject({
+      id: 0,
+      vote_average: 0,
+      vote_count: 0,
+      popularity: 0,
+      genre_ids: [18],
+      runtime: 0,
+      adult: false,
+      poster_path: null
+    });
+  });
+
+  it('returns a safe empty movie when given a non-object value', () => {
+    expect(normalizeMovie(null)).toEqual({
+      id: 0,
+      title: '',
+      overview: '',
+      genre_ids: [],
+      release_date: '',
+      vote_average: 0,
+      vote_count: 0,
+      popularity: 0,
+      runtime: null,
+      adult: false,
+      poster_path: null
+    });
+  });
 });

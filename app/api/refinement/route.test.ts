@@ -1,11 +1,10 @@
-import { applyRefinementAction, RefinementAction } from '@/lib/refinement/actions';
-import { InterpretedPreferences } from '@/lib/schemas/preferences';
+import type { InterpretedPreferences } from '@/lib/schemas/preferences';
 
 // Mock the NextResponse for testing
 jest.mock('next/server', () => {
   return {
     NextResponse: {
-      json: (data: any, options: { status?: number } = {}) => {
+      json: (data: unknown, options: { status?: number } = {}) => {
         return {
           json: () => Promise.resolve(data),
           status: options.status || 200

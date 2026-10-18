@@ -16,9 +16,9 @@ export default function Home() {
   const [situation, setSituation] = useState('');
   const [interpretedPreferences, setInterpretedPreferences] = useState<InterpretedPreferencesType | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationScore[]>([]);
-  const [loadingState, setLoadingState] = useState<'idle' | 'interpreting' | 'matching' | 'explaining' | 'success' | 'error'>('idle');
+  const [loadingState, setLoadingState] = useState<'idle' | 'interpreting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const isLoading = loadingState === 'interpreting' || loadingState === 'matching' || loadingState === 'explaining';
+  const isLoading = loadingState === 'interpreting';
   const hasResults = loadingState === 'success' && recommendations.length > 0;
 
   const handleSubmit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
@@ -108,7 +108,7 @@ export default function Home() {
                 {loadingState === 'error' && <button className="start-over-button" type="button" onClick={() => setLoadingState('idle')}>Try again</button>}
               </div>
 
-              {isLoading && <div className="loading-note"><LoadingState state={loadingState} /></div>}
+              {isLoading && <div className="loading-note"><LoadingState /></div>}
             </form>
 
             {!hasResults && loadingState !== 'error' && (

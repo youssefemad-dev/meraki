@@ -22,4 +22,6 @@ const RecommendationSkeleton: React.FC<{ count?: number }> = memo(({ count = 4 }
   );
 });
 
+RecommendationSkeleton.displayName = 'RecommendationSkeleton';
+
 export default RecommendationSkeleton;

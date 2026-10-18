@@ -1,10 +1,13 @@
-import { z } from 'zod';
 import { InterpretedPreferences } from './preferences';
 
 describe('InterpretedPreferences schema', () => {
-  it('should validate a complete preference object', () => {
+  it('accepts interpreted story signals and viewing preferences', () => {
     const validInput = {
+      situationSummary: 'You want a hopeful story about finding connection after a major life change.',
       genrePreferences: ['Action', 'Drama'],
+      storySignals: ['life-transition', 'unexpected-connection'],
+      storyKeywords: ['finding direction after college', 'new friendship'],
+      storyReferences: ['The Graduate'],
       mood: 'hopeful',
       themes: ['friendship', 'overcoming adversity'],
       pace: 'medium',
@@ -19,7 +22,6 @@ describe('InterpretedPreferences schema', () => {
       }
     };
 
-    // This will fail initially because the schema doesn't exist yet
     const result = InterpretedPreferences.safeParse(validInput);
     expect(result.success).toBe(true);
   });

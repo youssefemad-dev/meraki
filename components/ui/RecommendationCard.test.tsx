@@ -1,74 +1,61 @@
 import { render, screen } from '@testing-library/react';
+import type { RecommendationScore } from '@/lib/recommendations/score';
 import RecommendationCard from './RecommendationCard';
 
-describe('RecommendationCard Component', () => {
-  const mockRecommendation = {
-    movie: {
-      id: 1,
-      title: 'Test Movie',
-      overview: 'This is a test movie overview',
-      poster_path: '/test.jpg',
-      release_date: '2023-05-15',
-      vote_average: 8.5,
-      vote_count: 1000,
-      runtime: 120,
-      genre_ids: [28, 12], // Action, Adventure
-      adult: false,
-      popularity: 200
-    },
-    score: 85.5,
-    breakdown: {
-      genreMatch: 0.8,
-      themeMatch: 0.7,
-      ratingBoost: 0.9,
-      recencyBoost: 0.6
-    },
-    matchReasons: [
-      'Strong genre match with Action, Adventure',
-      'Themes of excitement, adventure align with your preferences',
-      'Highly rated by audiences (8.5/10 from 1000 votes)',
-      'Recent release (2023) that fits your taste for contemporary films'
-    ]
-  };
+const recommendation: RecommendationScore = {
+  movie: {
+    id: 1,
+    title: 'Lady Bird',
+    overview: 'A teenager navigates a complicated relationship with her mother.',
+    poster_path: '/lady-bird.jpg',
+    release_date: '2017-09-01',
+    vote_average: 7.4,
+    vote_count: 1000,
+    runtime: 94,
+    genre_ids: [18, 35],
+    adult: false,
+    popularity: 200
+  },
+  score: 85.5,
+  breakdown: { storyMatch: 0.855, genreMatch: 0, themeMatch: 0, ratingBoost: 0, recencyBoost: 0 },
+  matchReasons: [
+    'Its mother-daughter relationship captures affection complicated by conflict and independence.'
+  ]
+};
 
-  it('renders movie title', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} />);
-    expect(screen.getByRole('heading', { name: /test movie/i, level: 3 })).toBeInTheDocument();
+describe('RecommendationCard', () => {
+  it('shows a story match with its explanation and real movie details', () => {
+    render(<RecommendationCard recommendation={recommendation} />);
+
+    expect(screen.getByRole('heading', { name: 'Lady Bird' })).toBeInTheDocument();
+    expect(screen.getByText(/its mother-daughter relationship captures affection/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('85.5 percent story match')).toBeInTheDocument();
+    expect(screen.getByText('86')).toBeInTheDocument();
+    expect(screen.getByText('2017')).toBeInTheDocument();
+    expect(screen.getByText('94 min')).toBeInTheDocument();
+    expect(screen.getByText('Drama')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Poster for Lady Bird' })).toHaveAttribute(
+      'src',
+      'https://image.tmdb.org/t/p/w500/lady-bird.jpg'
+    );
   });
 
-  it('shows an accessible fallback when a movie has no poster', () => {
+  it('shows an accessible poster fallback when TMDB has no poster', () => {
     render(
       <RecommendationCard
-        recommendation={{
-          ...mockRecommendation,
-          movie: { ...mockRecommendation.movie, poster_path: null }
-        }}
+        recommendation={{ ...recommendation, movie: { ...recommendation.movie, poster_path: null } }}
       />
     );
 
-    expect(screen.getByRole('img', { name: 'Poster unavailable for Test Movie' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Poster unavailable for Lady Bird' })).toBeInTheDocument();
   });
 
-  it('renders movie score', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} />);
-    expect(screen.getByText(/85.5/)).toBeInTheDocument();
-  });
+  it('links to the recommended film on TMDB', () => {
+    render(<RecommendationCard recommendation={recommendation} />);
 
-  it('renders match reasons', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} />);
-    expect(screen.getByText(/strong genre match/i)).toBeInTheDocument();
-    expect(screen.getByText(/themes of excitement, adventure/i)).toBeInTheDocument();
-  });
-
-  it('renders movie runtime', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} />);
-    expect(screen.getByText(/120 min/)).toBeInTheDocument();
-  });
-
-  it('renders movie rating and vote count', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} />);
-    // Find the rating container and check it contains both the label and value
-    const ratingContainer = screen.getAllByText(/rating:/i)[0].closest('.flex.items-start');
-    expect(ratingContainer).toHaveTextContent(/8.5\/10 \(1000 votes\)/);
+    expect(screen.getByRole('link', { name: /explore this film/i })).toHaveAttribute(
+      'href',
+      'https://www.themoviedb.org/movie/1'
+    );
   });
 });
