@@ -32,28 +32,41 @@ describe('RecommendationCard Component', () => {
   };
 
   it('renders movie title', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} index={0} />);
+    render(<RecommendationCard recommendation={mockRecommendation} />);
     expect(screen.getByRole('heading', { name: /test movie/i, level: 3 })).toBeInTheDocument();
   });
 
+  it('shows an accessible fallback when a movie has no poster', () => {
+    render(
+      <RecommendationCard
+        recommendation={{
+          ...mockRecommendation,
+          movie: { ...mockRecommendation.movie, poster_path: null }
+        }}
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'Poster unavailable for Test Movie' })).toBeInTheDocument();
+  });
+
   it('renders movie score', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} index={0} />);
+    render(<RecommendationCard recommendation={mockRecommendation} />);
     expect(screen.getByText(/85.5/)).toBeInTheDocument();
   });
 
   it('renders match reasons', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} index={0} />);
+    render(<RecommendationCard recommendation={mockRecommendation} />);
     expect(screen.getByText(/strong genre match/i)).toBeInTheDocument();
     expect(screen.getByText(/themes of excitement, adventure/i)).toBeInTheDocument();
   });
 
   it('renders movie runtime', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} index={0} />);
+    render(<RecommendationCard recommendation={mockRecommendation} />);
     expect(screen.getByText(/120 min/)).toBeInTheDocument();
   });
 
   it('renders movie rating and vote count', () => {
-    render(<RecommendationCard recommendation={mockRecommendation} index={0} />);
+    render(<RecommendationCard recommendation={mockRecommendation} />);
     // Find the rating container and check it contains both the label and value
     const ratingContainer = screen.getAllByText(/rating:/i)[0].closest('.flex.items-start');
     expect(ratingContainer).toHaveTextContent(/8.5\/10 \(1000 votes\)/);

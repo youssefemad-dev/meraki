@@ -1,90 +1,76 @@
-import { RecommendationScore } from '@/lib/recommendations/score';
+import type { RecommendationScore } from '@/lib/recommendations/score';
 import { memo } from 'react';
 
 interface RecommendationCardProps {
   recommendation: RecommendationScore;
-  index: number;
+  rank?: number;
 }
 
-const RecommendationCard: React.FC<RecommendationCardProps> = memo(({ recommendation, index }) => {
+const genreNames: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+  99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+  27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-fi',
+  10770: 'TV movie', 53: 'Thriller', 10752: 'War', 37: 'Western'
+};
+
+const RecommendationCard: React.FC<RecommendationCardProps> = memo(({ recommendation, rank = 1 }) => {
   const { movie, score, matchReasons } = recommendation;
-  const posterUrl = movie.poster_path
-    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : '/placeholder-poster.jpg';
+  const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
+  const genres = movie.genre_ids?.map(id => genreNames[id]).filter(Boolean) ?? [];
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
-      <div className="relative">
-        <img
-          src={posterUrl}
-          alt={movie.title}
-          className="w-full h-48 object-cover"
-          loading="lazy"
-        />
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-2">
-          <h3 className="text-white text-lg font-semibold line-clamp-2">{movie.title}</h3>
-          <p className="text-white text-sm opacity-90 line-clamp-1">
-            {movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}
-          </p>
-        </div>
+    <article className={`movie-card ${rank === 1 ? 'movie-card--featured' : ''}`}>
+      <div className="movie-poster-wrap">
+        {movie.poster_path ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+            alt={`Poster for ${movie.title}`}
+            className="movie-poster"
+            loading={rank > 2 ? 'lazy' : 'eager'}
+          />
+        ) : (
+          <div role="img" aria-label={`Poster unavailable for ${movie.title}`} className="poster-unavailable">
+            <span>MERAKI<br />FILM NOTES</span><strong>{movie.title}</strong>
+          </div>
+        )}
+        <span className="poster-rank">{String(rank).padStart(2, '0')}</span>
       </div>
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-3">
-          <div className="text-2xl font-bold text-gray-800">{score}</div>
-          <div className="flex space-x-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <span key={star} className="text-yellow-400">
-                {star <= Math.floor(score / 20) ? '★' :
-                 star <= Math.ceil(score / 20) && star > Math.floor(score / 20) ? '½★' : '☆'}
-              </span>
-            ))}
-          </div>
+
+      <div className="movie-card-content">
+        <div className="movie-card-topline">
+          <span className="match-label"><span aria-hidden="true">✳</span> {score >= 85 ? 'A CLOSE STORY MATCH' : 'A STORY MATCH'}</span>
+          <span className="match-score" aria-label={`${score} percent story match`}>{Math.round(score)}<small>% match</small></span>
         </div>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-3">{movie.overview}</p>
-        <div className="space-y-2">
-          <div className="flex items-start">
-            <span className="flex-shrink-0 text-blue-600">•</span>
-            <span className="ml-2 text-sm text-gray-700">
-              <strong>Genres:</strong>
-              {/* In a real app, we'd map genre IDs to names */}
-              {movie.genre_ids?.map((id: number) => {
-                const genreMap: Record<number, string> = {
-                  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
-                  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
-                  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
-                  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
-                  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western'
-                };
-                return genreMap[id] || 'Unknown';
-              }).join(', ')}
-            </span>
-          </div>
-          <div className="flex items-start">
-            <span className="flex-shrink-0 text-blue-600">•</span>
-            <span className="ml-2 text-sm text-gray-700">
-              <strong>Rating:</strong> {movie.vote_average}/10 ({movie.vote_count} votes)
-            </span>
-          </div>
-          {movie.runtime && (
-            <div className="flex items-start">
-              <span className="flex-shrink-0 text-blue-600">•</span>
-              <span className="ml-2 text-sm text-gray-700">
-                <strong>Runtime:</strong> {movie.runtime} min
-              </span>
-            </div>
-          )}
+
+        <div className="movie-title-row">
+          <h3>{movie.title}</h3>
+          {year && <span className="movie-year">{year}</span>}
         </div>
-        <div className="mt-4 pt-3 border-t border-gray-100">
-          <h4 className="font-medium text-gray-800 mb-2">Why this movie?</h4>
-          <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-            {matchReasons.map((reason, idx) => (
-              <li key={idx}>{reason}</li>
-            ))}
-          </ul>
+
+        <p className="movie-overview">{movie.overview || 'A story worth discovering.'}</p>
+
+        <div className="movie-meta" aria-label="Movie details">
+          {movie.vote_average > 0 && <span><span className="meta-star" aria-hidden="true">★</span> {movie.vote_average.toFixed(1)} <small>TMDB</small></span>}
+          {movie.runtime && <span>{movie.runtime} min</span>}
+          {genres.slice(0, 3).map(genre => <span className="genre-pill" key={genre}>{genre}</span>)}
         </div>
+
+        {matchReasons.length > 0 && (
+          <div className="match-note">
+            <span className="match-note-label">WHY IT MAY RESONATE</span>
+            <p>{matchReasons[0]}</p>
+          </div>
+        )}
+
+        <a className="movie-link" href={`https://www.themoviedb.org/movie/${movie.id}`} target="_blank" rel="noreferrer">
+          Explore this film <span aria-hidden="true">↗</span>
+        </a>
       </div>
-    </div>
+    </article>
   );
 });
+
+RecommendationCard.displayName = 'RecommendationCard';
 
 export default RecommendationCard;

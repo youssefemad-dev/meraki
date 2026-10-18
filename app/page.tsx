@@ -1,156 +1,57 @@
-import { useState, useCallback, useMemo } from 'react';
+'use client';
+
+import { useCallback, useState } from 'react';
 import LoadingState from '@/components/ui/LoadingState';
 import RecommendationCard from '@/components/ui/RecommendationCard';
-import RefinementPanel from '@/components/ui/RefinementPanel';
-import { InterpretedPreferences, RefinementAction } from '@/lib/schemas/preferences';
-import { RecommendationScore } from '@/lib/recommendations/score';
+import type { InterpretedPreferencesType } from '@/lib/schemas/preferences';
+import type { RecommendationScore } from '@/lib/recommendations/score';
+
+const examples = [
+  'I miss how close my sister and I used to be.',
+  'I need a little hope after a long, uncertain week.',
+  'A romance that feels honest, not overly perfect.'
+];
 
 export default function Home() {
-  const preferencesToSituation = useMemo((prefs: InterpretedPreferences): string => {
-    const parts = [];
-
-    if (prefs.genrePreferences?.length) {
-      parts.push(`I want to watch ${prefs.genrePreferences.join(' or ')} movies`);
-    }
-
-    if (prefs.mood) {
-      parts.push(`I'm feeling ${prefs.mood}`);
-    }
-
-    if (prefs.desiredExperience) {
-      parts.push(`I'm looking for ${prefs.desiredExperience}`);
-    }
-
-    if (prefs.intensity) {
-      parts.push(`with ${prefs.intensity} intensity`);
-    }
-
-    if (prefs.themes?.length) {
-      parts.push(`featuring themes like ${prefs.themes.slice(0, 3).join(', ')}`);
-    }
-
-    if (prefs.contentToAvoid?.length) {
-      parts.push(`but I want to avoid ${prefs.contentToAvoid.join(' and ')}`);
-    }
-
-    if (parts.length === 0) {
-      return 'I want to watch a good movie';
-    }
-
-    return parts.join(' ');
-  }, []);
   const [situation, setSituation] = useState('');
-  const [interpretedPreferences, setInterpretedPreferences] = useState<InterpretedPreferences | null>(null);
+  const [interpretedPreferences, setInterpretedPreferences] = useState<InterpretedPreferencesType | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationScore[]>([]);
   const [loadingState, setLoadingState] = useState<'idle' | 'interpreting' | 'matching' | 'explaining' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isLoading = loadingState === 'interpreting' || loadingState === 'matching' || loadingState === 'explaining';
+  const hasResults = loadingState === 'success' && recommendations.length > 0;
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!situation.trim()) return;
+  const handleSubmit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!situation.trim() || isLoading) return;
 
     setLoadingState('interpreting');
     setErrorMessage(null);
 
     try {
-      // Call the discovery API
       const response = await fetch('/api/discover', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ situation }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ situation })
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
 
-      if (data.error) {
+      if (!response.ok || data.error) {
         setLoadingState('error');
-        setErrorMessage(data.error);
+        setErrorMessage(typeof data.error === 'string' ? data.error : 'We couldn’t find your film. Please try again.');
         return;
       }
 
       setInterpretedPreferences(data.preferences);
       setRecommendations(data.recommendations);
       setLoadingState('success');
+      window.setTimeout(() => document.getElementById('recommendations')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } catch (error) {
       console.error('Discovery failed:', error);
       setLoadingState('error');
-      setErrorMessage('Failed to get recommendations. Please try again.');
+      setErrorMessage('Something interrupted the search. Please try again.');
     }
-  }, [situation]);
-
-  const handleRefinement = useCallback(async (action: RefinementAction) => {
-    if (!interpretedPreferences) return;
-
-    setLoadingState('matching');
-    setErrorMessage(null);
-
-    try {
-      // Call the refinement API
-      const response = await fetch('/api/refinement', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ preferences: interpretedPreferences, action }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.error) {
-        setLoadingState('error');
-        setErrorMessage(data.error);
-        return;
-      }
-
-      // Update preferences with the refined ones
-      setInterpretedPreferences(data.preferences);
-
-      // Get new recommendations based on refined preferences
-      setLoadingState('explaining');
-
-      // Convert refined preferences back to a situation-like string for the discover API
-      const situationFromPreferences = preferencesToSituation(data.preferences);
-
-      // Call discover API with the situation derived from refined preferences
-      const discoverResponse = await fetch('/api/discover', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ situation: situationFromPreferences }),
-      });
-
-      if (!discoverResponse.ok) {
-        throw new Error(`HTTP error! status: ${discoverResponse.status}`);
-      }
-
-      const discoverData = await discoverResponse.json();
-
-      if (discoverData.error) {
-        setLoadingState('error');
-        setErrorMessage(discoverData.error);
-        return;
-      }
-
-      setRecommendations(discoverData.recommendations);
-      setLoadingState('success');
-    } catch (error) {
-      console.error('Refinement failed:', error);
-      setLoadingState('error');
-      setErrorMessage('Failed to refine recommendations. Please try again.');
-    }
-  }, [interpretedPreferences]);
-
+  }, [isLoading, situation]);
 
   const handleReset = useCallback(() => {
     setSituation('');
@@ -158,217 +59,141 @@ export default function Home() {
     setRecommendations([]);
     setLoadingState('idle');
     setErrorMessage(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black font-sans">
-      <header className="bg-white dark:bg-zinc-900 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <img className="h-8 w-auto" src="/meraki-logo.svg" alt="Meraki" />
-              </div>
-              <div className="hidden md:block">
-                <div className="ml-10 flex items-baseline space-x-4">
-                  <a href="#" className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                    Browse
-                  </a>
-                  <a href="#" className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                    Lists
-                  </a>
-                  <a href="#" className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                    About
-                  </a>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <a href="#" className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                Sign In
-              </a>
-            </div>
-          </div>
-        </div>
+    <div className="site-shell">
+      <header className="topbar">
+        <a className="brand" href="#top" aria-label="Meraki home">
+          <span className="brand-mark" aria-hidden="true"><span /></span>
+          <span className="brand-copy"><strong>meraki</strong><small>FILMS FOR THE FEELING</small></span>
+        </a>
+        <a className="topbar-link" href="#how-it-works">A different kind of movie finder <span aria-hidden="true">↗</span></a>
       </header>
 
-      <main className="max-w-7xl mx-auto py-12 sm:px-6 lg:px-8 px-4" id="main-content">
-        <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Describe your movie night situation
+      <main id="main-content" className="main-content">
+        <section id="top" className={`hero ${hasResults ? 'hero--compact' : ''}`} aria-labelledby="hero-title">
+          <div className="hero-copy">
+            <p className="eyebrow"><span className="eyebrow-dot" /> YOUR NEXT FILM STARTS WITH A FEELING</p>
+            <h1 id="hero-title">Some stories just <em>get you.</em></h1>
+            <p className="hero-description">Tell us what’s on your mind. We’ll find a film with a story that feels close to yours.</p>
+
+            <form className="story-form" onSubmit={handleSubmit}>
+              <label htmlFor="situation">What’s your story tonight?</label>
+              <div className="input-frame">
+                <textarea
+                  id="situation"
+                  rows={3}
+                  placeholder="The thing you can’t quite put into words…"
+                  value={situation}
+                  onChange={event => setSituation(event.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+                <div className="input-bottomline">
+                  <span><span className="sparkle" aria-hidden="true">✳</span> No genres to choose. Just say what you mean.</span>
+                  <span>{situation.length ? `${situation.length} characters` : 'A sentence is plenty'}</span>
                 </div>
-                <div className="relative">
-                  <textarea
-                    id="situation"
-                    rows={4}
-                    className="block w-full rounded-md border-0 py-1.5 text-zinc-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    placeholder="e.g., 'I want to watch something romantic but not too cheesy with my partner after a long week'"
-                    value={situation}
-                    onChange={(e) => setSituation(e.target.value)}
-                    disabled={loadingState !== 'idle' && loadingState !== 'error'}
-                  />
-                  {loadingState !== 'idle' && loadingState !== 'error' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <LoadingState state={loadingState} />
-                    </div>
-                  )}
-                </div>
-                {errorMessage && (
-                  <div className="rounded-md bg-red-50 p-2 text-sm text-red-600">
-                    {errorMessage}
-                  </div>
-                )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <button
-                  type="submit"
-                  disabled={loadingState !== 'idle' && loadingState !== 'error' || !situation.trim()}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-                >
-                  Discover Movies
+              {errorMessage && <p role="alert" className="error-message">{errorMessage}</p>}
+
+              <div className="form-actions">
+                <button className="discover-button" type="submit" disabled={isLoading || !situation.trim()}>
+                  {isLoading ? 'Finding your film' : 'Find my film'}
+                  <span aria-hidden="true">{isLoading ? '···' : '↗'}</span>
                 </button>
-                {loadingState === 'error' && (
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    className="ml-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  >
-                    Try Again
-                  </button>
-                )}
+                {hasResults && <button className="start-over-button" type="button" onClick={handleReset}>Start a new story</button>}
+                {loadingState === 'error' && <button className="start-over-button" type="button" onClick={() => setLoadingState('idle')}>Try again</button>}
               </div>
+
+              {isLoading && <div className="loading-note"><LoadingState state={loadingState} /></div>}
             </form>
 
-            {/* Results Section */}
-            {interpretedPreferences && recommendations.length > 0 && (
-              <>
-                <div className="mt-8">
-                  <h2 className="sr-only">Your Preferences</h2>
-                  <div className="bg-white dark:bg-zinc-800 rounded-lg shadow p-6">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                      Based on your situation:
-                    </h3>
-                    <p className="text-zinc-600 dark:text-zinc-400">
-                      You're looking for a "{interpretedPreferences.desiredExperience}" experience
-                      with a {interpretedPreferences.mood} mood.
-                    </p>
-                    {interpretedPreferences.themes?.length && (
-                      <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-                        Themes: {interpretedPreferences.themes.join(', ')}
-                      </p>
-                    )}
-                    {interpretedPreferences.contentToAvoid?.length && (
-                      <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-                        Avoiding: {interpretedPreferences.contentToAvoid.join(', ')}
-                      </p>
-                    )}
-                  </div>
+            {!hasResults && loadingState !== 'error' && (
+              <div className="example-prompts" aria-label="Example situations">
+                <span className="example-label">NEED A STARTING POINT?</span>
+                <div className="example-list">
+                  {examples.map(example => (
+                    <button type="button" key={example} onClick={() => setSituation(example)}>{example}</button>
+                  ))}
                 </div>
-
-                <div className="mt-8">
-                  <h2 className="sr-only">Recommendations</h2>
-                  {/* Live region for screen readers to announce recommendation updates */}
-                  <div
-                    aria-live="polite"
-                    aria-atomic="true"
-                    className="sr-only"
-                  >
-                    {loadingState === 'success' && recommendations.length > 0 && (
-                      `Found ${recommendations.length} movie recommendations.`
-                    )}
-                  </div>
-                  {loadingState === 'success' && recommendations.length > 0 ? (
-                    <div className="space-y-6">
-                      {recommendations.map((rec, index) => (
-                        <RecommendationCard
-                          key={rec.movie.id}
-                          recommendation={rec}
-                          index={index}
-                        />
-                      ))}
-                    </div>
-                  ) : loadingState === 'matching' || loadingState === 'explaining' ? (
-                    <div className="min-h-[200px] flex items-center justify-center">
-                      <LoadingState state={loadingState} />
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            )}
-
-            {/* Refinement Section */}
-            {interpretedPreferences && recommendations.length > 0 && loadingState === 'success' && (
-              <RefinementPanel
-                preferences={interpretedPreferences}
-                onRefinement={handleRefinement}
-                onReset={handleReset}
-                loadingState={loadingState}
-              />
+              </div>
             )}
           </div>
 
-          {/* Sidebar */}
-          <aside className="lg:col-span-1 mt-8 lg:mt-0">
-            <div className="space-y-6">
-              {/* How it works */}
-              <div className="bg-white dark:bg-zinc-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                  How Meraki Works
-                </div>
-                <ol className="list-decimal space-y-2 pl-5 text-zinc-600 dark:text-zinc-400">
-                  <li>Describe your movie night situation in natural language</li>
-                  <li>Our AI understands your preferences and context</li>
-                  <li>We find movies that match your desired experience</li>
-                  <li>Get personalized recommendations with explanations</li>
-                  <li>Refine results until you find the perfect movie</li>
-                </ol>
-              </div>
+          {!hasResults && (
+            <div className="hero-art" aria-hidden="true">
+              <div className="art-orbit art-orbit--one" />
+              <div className="art-orbit art-orbit--two" />
+              <div className="art-sun" />
+              <div className="art-horizon" />
+              <div className="art-landscape art-landscape--back" />
+              <div className="art-landscape art-landscape--front" />
+              <div className="art-filmstrip art-filmstrip--left" />
+              <div className="art-filmstrip art-filmstrip--right" />
+              <div className="art-caption"><span>TONIGHT’S FEATURE</span><strong>A story<br />that feels like yours.</strong><i>01 — ∞</i></div>
+              <div className="art-stamp">TAKE<br />A FEELING<br />WITH YOU</div>
+            </div>
+          )}
+        </section>
 
-              {/* Example situations */}
-              <div className="bg-white dark:bg-zinc-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                  Try These Examples
-                </div>
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => setSituation('Romantic date night at home with my partner')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
-                  >
-                    Romantic date night at home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSituation('Exciting action movie to watch with friends on Friday')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
-                  >
-                    Action movie with friends
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSituation('Thoughtful drama to watch alone on a rainy Sunday')}
-                    className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 rounded-md text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus-ring-offset-2 focus-ring-indigo-500"
-                  >
-                    Thoughtful solo drama
-                  </button>
-                </div>
+        {interpretedPreferences && (
+          <section id="recommendations" className="results-section" aria-labelledby="results-heading">
+            <div className="results-intro">
+              <div>
+                <p className="eyebrow"><span className="eyebrow-dot" /> A STORY THAT MEETS YOU THERE</p>
+                <h2 id="results-heading">Your feeling, <em>in film.</em></h2>
+              </div>
+              <p className="results-count">{recommendations.length} {recommendations.length === 1 ? 'film' : 'films'} picked for your story</p>
+            </div>
+
+            <div className="interpretation-card">
+              <span className="interpretation-mark" aria-hidden="true">“</span>
+              <div>
+                <p>{interpretedPreferences.situationSummary || 'We found the story threads that matter to you.'}</p>
+                {Boolean(interpretedPreferences.themes?.length) && (
+                  <div className="theme-list" aria-label="Story themes">
+                    {interpretedPreferences.themes.map(theme => <span className="theme-chip" key={theme}>{theme}</span>)}
+                  </div>
+                )}
               </div>
             </div>
-          </aside>
-        </div>
+
+            {hasResults ? (
+              <div className="recommendation-list">
+                {recommendations.map((recommendation, index) => (
+                  <RecommendationCard key={recommendation.movie.id} recommendation={recommendation} rank={index + 1} />
+                ))}
+              </div>
+            ) : loadingState === 'success' ? (
+              <div className="empty-state">No close story matches turned up this time. Try describing another part of what you’re looking for.</div>
+            ) : null}
+
+            <p className="results-footnote">A thoughtful match is more than a shared genre. These picks are based on the stories themselves.</p>
+          </section>
+        )}
+
+        {!hasResults && (
+          <section id="how-it-works" className="how-section">
+            <div className="how-heading">
+              <p className="eyebrow">A LITTLE MORE HUMAN</p>
+              <h2>Not another mood picker.</h2>
+              <p>Because “romance” doesn’t tell the whole story.</p>
+            </div>
+            <div className="how-steps">
+              <article><span>01</span><h3>Tell us what’s real</h3><p>Write a thought, a moment, or the kind of story you need.</p></article>
+              <article><span>02</span><h3>We find the thread</h3><p>We look for films with characters and stories that echo yours.</p></article>
+              <article><span>03</span><h3>Meet your next film</h3><p>Get a short list with a reason each one might stay with you.</p></article>
+            </div>
+          </section>
+        )}
       </main>
 
-      <footer className="bg-white dark:bg-zinc-900 border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-            © 2026 Meraki. All rights reserved.
-          </div>
-        </div>
+      <footer className="footer">
+        <a className="footer-brand" href="#top">meraki<span> · Films for the feeling</span></a>
+        <span>Made for the stories we carry.</span>
       </footer>
     </div>
   );
