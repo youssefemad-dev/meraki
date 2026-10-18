@@ -14,8 +14,8 @@ Meraki turns a thought, a difficult day, or a very specific feeling into movie r
 
 Most movie finders ask what genre you want. Meraki starts with what is happening in your life. Describe it in your own words, and the app looks for films whose characters, relationships, and plot echo that situation.
 
-**Situation:** “My mom loves me but doesn’t like me.”<br>
-**A story match:** *Lady Bird* — a coming-of-age story about a mother and daughter whose deep love is tangled up with conflict, frustration, and the struggle to understand each other.
+**Situation:** “I’m far from home, surrounded by people, but still feel like nobody understands me.”<br>
+**A story match:** *Lost in Translation* — two strangers feeling out of place in Tokyo find a quiet connection that makes an unfamiliar city feel less lonely.
 
 ## What it does
 
