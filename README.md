@@ -72,8 +72,8 @@ All displayed films come from TMDB candidates. If the AI service is unavailable 
    ```env
    TMDB_API_KEY=your_tmdb_api_key
    NVIDIA_API_KEY=your_nvidia_api_key
-   # Optional: defaults to nvidia/nemotron-3-super-120b-a12b
-   NVIDIA_MODEL=nvidia/nemotron-3-super-120b-a12b
+   # Optional: defaults to nvidia/nemotron-3.5-lightning-30b-a3b
+   NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b
    ```
 
 3. Start the development server:

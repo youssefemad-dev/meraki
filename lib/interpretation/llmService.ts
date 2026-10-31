@@ -49,7 +49,7 @@ async function requestNvidiaJson(
     throw new AiServiceError('AI recommendations are unavailable because NVIDIA_API_KEY is not configured on the server.');
   }
 
-  const model = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+  const model = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b';
   let response: Response;
   try {
     response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
@@ -72,7 +72,7 @@ async function requestNvidiaJson(
           }
         }],
         tool_choice: { type: 'function', function: { name: 'submit_result' } },
-        ...(model.includes('nemotron-3-super')
+        ...(model.includes('nemotron')
           ? { chat_template_kwargs: { enable_thinking: false } }
           : {})
       }),
